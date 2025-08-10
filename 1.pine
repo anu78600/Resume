@@ -1,0 +1,326 @@
+//@version=6
+strategy("SMALLCAP MOMENTUM MASTER v6", 
+         shorttitle="SMM", 
+         overlay=true, 
+         max_bars_back=1000,
+         default_qty_type=strategy.percent_of_equity, 
+         default_qty_value=10,
+         commission_type=strategy.commission.percent,
+         commission_value=0.05,
+         slippage=3,
+         pyramiding=1)
+
+// ============================================================================
+// INPUT PARAMETERS - SMALLCAP OPTIMIZED
+// ============================================================================
+
+// Universe Selection - Smallcap Criteria
+minPrice = input.float(80, "Minimum Price", minval=20, group="Universe Selection")
+maxPrice = input.float(2000, "Maximum Price", minval=50, group="Universe Selection")
+minVolume = input.int(100000, "Minimum Daily Volume", minval=10000, group="Universe Selection")
+maxMarketCap = input.float(15000, "Max Market Cap (Cr)", minval=1000, group="Universe Selection")
+
+// Price Action & Market Structure
+swing_lookback = input.int(10, "Swing Point Lookback", minval=5, maxval=20, group="Price Action")
+structure_period = input.int(50, "Market Structure Period", minval=20, maxval=100, group="Price Action")
+breakout_confirm = input.int(3, "Breakout Confirmation Bars", minval=1, maxval=5, group="Price Action")
+
+// Trend Analysis - Smallcap Adjusted
+ema_fast = input.int(8, "Fast EMA", minval=5, maxval=15, group="Trend Analysis")
+ema_medium = input.int(21, "Medium EMA", minval=15, maxval=30, group="Trend Analysis")
+ema_slow = input.int(50, "Slow EMA", minval=40, maxval=100, group="Trend Analysis")
+trend_strength_bars = input.int(5, "Trend Strength Bars", minval=3, maxval=10, group="Trend Analysis")
+
+// Momentum - High Volatility Adjusted
+rsi_period = input.int(9, "RSI Period", minval=7, maxval=14, group="Momentum")
+rsi_oversold = input.float(25, "RSI Oversold", minval=15, maxval=35, group="Momentum")
+rsi_overbought = input.float(75, "RSI Overbought", minval=65, maxval=85, group="Momentum")
+volume_surge = input.float(2.0, "Volume Surge Multiplier", minval=1.5, maxval=3.0, group="Momentum")
+
+// Volatility - Smallcap Specific
+atr_period = input.int(10, "ATR Period", minval=7, maxval=20, group="Volatility")
+volatility_min = input.float(3.0, "Min ATR %", minval=1.0, maxval=5.0, group="Volatility")
+volatility_max = input.float(12.0, "Max ATR %", minval=8.0, maxval=20.0, group="Volatility")
+bb_period = input.int(15, "BB Period", minval=10, maxval=25, group="Volatility")
+bb_std = input.float(2.5, "BB Std Dev", minval=2.0, maxval=3.0, group="Volatility")
+
+// Risk Management - Enhanced for Smallcaps
+position_risk = input.float(2.0, "Position Risk %", minval=1.0, maxval=5.0, group="Risk Management")
+stop_loss_pct = input.float(4.0, "Stop Loss %", minval=2.0, maxval=8.0, group="Risk Management")
+take_profit_ratio = input.float(4.0, "Risk:Reward Ratio", minval=2.0, maxval=8.0, group="Risk Management")
+max_positions = input.int(3, "Max Concurrent Positions", minval=1, maxval=5, group="Risk Management")
+
+// Strategy Selection
+strategy_mode = input.string("Comprehensive", "Strategy Mode", 
+                options=["Comprehensive", "Breakout Hunter", "Mean Reversion", "Momentum Surge", "Structure Break"],
+                group="Strategy")
+
+// Backtesting
+enable_backtest = input.bool(true, "Enable Backtesting", group="Backtesting")
+start_year = input.int(2015, "Backtest Start Year", minval=2010, maxval=2024, group="Backtesting")
+
+// ============================================================================
+// MARKET STRUCTURE & PRICE ACTION CALCULATIONS
+// ============================================================================
+
+// Higher Highs and Lower Lows Detection
+hh = ta.highest(high, swing_lookback)
+ll = ta.lowest(low, swing_lookback)
+prev_hh = hh[swing_lookback]
+prev_ll = ll[swing_lookback]
+
+// Market Structure
+higher_high = high > prev_hh
+lower_low = low < prev_ll
+higher_low = low > prev_ll and low < prev_hh
+lower_high = high < prev_hh and high > prev_ll
+
+// Trend Structure Classification
+uptrend_structure = higher_high and higher_low
+downtrend_structure = lower_high and lower_low
+sideways_structure = not uptrend_structure and not downtrend_structure
+
+// Support and Resistance Levels
+pivot_high = ta.pivothigh(high, swing_lookback, swing_lookback)
+pivot_low = ta.pivotlow(low, swing_lookback, swing_lookback)
+resistance_level = ta.valuewhen(not na(pivot_high), pivot_high, 0)
+support_level = ta.valuewhen(not na(pivot_low), pivot_low, 0)
+
+// ============================================================================
+// TECHNICAL INDICATORS - SMALLCAP OPTIMIZED
+// ============================================================================
+
+// Moving Averages
+ema_8 = ta.ema(close, ema_fast)
+ema_21 = ta.ema(close, ema_medium)
+ema_50 = ta.ema(close, ema_slow)
+
+// Momentum Indicators
+rsi = ta.rsi(close, rsi_period)
+[macd_line, signal_line, macd_hist] = ta.macd(close, 8, 21, 5)  // Faster for smallcaps
+stoch_k = ta.stoch(close, high, low, 9)
+
+// Volatility
+atr = ta.atr(atr_period)
+atr_percent = (atr / close) * 100
+[bb_upper, bb_middle, bb_lower] = ta.bb(close, bb_period, bb_std)
+
+// Volume Analysis
+avg_volume = ta.sma(volume, 20)
+volume_spike = volume > avg_volume * volume_surge
+volume_above_avg = volume > avg_volume
+
+// Price Action Patterns
+hammer = (close > open) and ((open - low) > 2 * (close - open)) and ((high - close) <= (close - open))
+doji = math.abs(close - open) <= (high - low) * 0.1
+engulfing_bull = (close > open) and (close[1] < open[1]) and (close > open[1]) and (open < close[1])
+
+// ============================================================================
+// UNIVERSE FILTERS - SMALLCAP SPECIFIC
+// ============================================================================
+
+// Date Range Filter
+start_time = timestamp(start_year, 1, 1, 0, 0)
+in_date_range = enable_backtest ? time >= start_time : true
+
+// Price and Volume Filters
+price_filter = close >= minPrice and close <= maxPrice
+volume_filter = volume >= minVolume
+volatility_filter = atr_percent >= volatility_min and atr_percent <= volatility_max
+
+// Market Cap Approximation (Price * Volume as proxy)
+approx_market_activity = close * volume / 1000000  // Simplified market activity metric
+liquidity_filter = approx_market_activity > 50  // Minimum liquidity threshold
+
+universe_filter = price_filter and volume_filter and volatility_filter and liquidity_filter and in_date_range
+
+// ============================================================================
+// STRATEGY CONDITIONS - MULTIPLE APPROACHES
+// ============================================================================
+
+// Base Trend Conditions
+trend_alignment = ema_8 > ema_21 and ema_21 > ema_50
+price_above_emas = close > ema_8 and close > ema_21
+strong_uptrend = uptrend_structure and trend_alignment
+
+// Momentum Conditions
+momentum_bullish = rsi > 50 and rsi < rsi_overbought and macd_line > signal_line
+momentum_oversold = rsi < rsi_oversold and rsi[1] >= rsi  // RSI turning up from oversold
+
+// Volume Confirmation
+volume_confirmation = volume_spike or (volume_above_avg and close > open)
+
+// Price Action Conditions
+breakout_condition = close > resistance_level and volume_spike
+support_bounce = close > support_level and close < support_level * 1.05 and hammer
+structure_break = higher_high and volume_spike and strong_uptrend
+
+// ============================================================================
+// STRATEGY MODES
+// ============================================================================
+
+// Comprehensive Strategy
+comprehensive_long = universe_filter and strong_uptrend and momentum_bullish and volume_confirmation
+
+// Breakout Hunter
+breakout_long = universe_filter and breakout_condition and momentum_bullish and trend_alignment
+
+// Mean Reversion
+reversion_long = universe_filter and support_bounce and momentum_oversold and volume_above_avg
+
+// Momentum Surge
+surge_long = universe_filter and volume_spike and rsi > 60 and close > ema_8 and macd_hist > macd_hist[1]
+
+// Structure Break
+structure_long = universe_filter and structure_break and rsi > 45 and rsi < 80
+
+// Final Entry Condition
+entry_signal = switch strategy_mode
+    "Breakout Hunter" => breakout_long
+    "Mean Reversion" => reversion_long
+    "Momentum Surge" => surge_long
+    "Structure Break" => structure_long
+    => comprehensive_long
+
+// ============================================================================
+// POSITION MANAGEMENT - SMALLCAP ENHANCED
+// ============================================================================
+
+// Risk Calculation
+account_equity = strategy.equity
+risk_amount = account_equity * (position_risk / 100)
+entry_price = close
+stop_price = entry_price * (1 - stop_loss_pct / 100)
+target_price = entry_price + (entry_price - stop_price) * take_profit_ratio
+
+// Position Size (Conservative for smallcaps)
+position_size = math.max(1, math.floor(risk_amount / (entry_price - stop_price)))
+
+// Position Count Management
+current_positions = strategy.position_size != 0 ? 1 : 0
+
+// ============================================================================
+// STRATEGY EXECUTION
+// ============================================================================
+
+// Entry Logic
+if entry_signal and strategy.position_size == 0 and current_positions < max_positions
+    strategy.entry("LONG", strategy.long, qty=position_size, comment="SMM Entry")
+
+// Exit Logic
+if strategy.position_size > 0
+    // Stop Loss & Take Profit
+    strategy.exit("EXIT", from_entry="LONG", stop=stop_price, limit=target_price, comment="SL/TP")
+    
+    // Trend Reversal Exit
+    if close < ema_21 and rsi < 40
+        strategy.close("LONG", comment="Trend Exit")
+    
+    // Structure Break Exit
+    if lower_low and volume_spike
+        strategy.close("LONG", comment="Structure Break")
+
+// ============================================================================
+// VISUALIZATION
+// ============================================================================
+
+// EMAs
+plot(ema_8, "EMA 8", color=color.blue, linewidth=1)
+plot(ema_21, "EMA 21", color=color.orange, linewidth=2)
+plot(ema_50, "EMA 50", color=color.red, linewidth=2)
+
+// Bollinger Bands
+p_upper = plot(bb_upper, "BB Upper", color=color.gray)
+p_lower = plot(bb_lower, "BB Lower", color=color.gray)
+fill(p_upper, p_lower, color=color.new(color.blue, 95))
+
+// Support & Resistance
+plot(resistance_level, "Resistance", color=color.red, linestyle=line.style_dashed, linewidth=1)
+plot(support_level, "Support", color=color.green, linestyle=line.style_dashed, linewidth=1)
+
+// Entry Signals
+bgcolor(entry_signal ? color.new(color.lime, 85) : na, title="Entry Zone")
+plotshape(entry_signal and strategy.position_size == 0, style=shape.triangleup, 
+          location=location.belowbar, color=color.lime, size=size.normal, title="BUY")
+
+// Market Structure
+plotshape(higher_high, style=shape.labelup, location=location.abovebar, 
+          color=color.green, textcolor=color.white, text="HH", size=size.tiny)
+plotshape(lower_low, style=shape.labeldown, location=location.belowbar, 
+          color=color.red, textcolor=color.white, text="LL", size=size.tiny)
+
+// ============================================================================
+// ALERTS
+// ============================================================================
+
+alertcondition(entry_signal, "Smallcap Entry", "SMALLCAP MOMENTUM: BUY {{ticker}} at ₹{{close}}")
+alertcondition(strategy.position_size == 0 and strategy.position_size[1] > 0, "Position Closed", "SMALLCAP: CLOSED {{ticker}}")
+
+// ============================================================================
+// PERFORMANCE DASHBOARD
+// ============================================================================
+
+if barstate.islast
+    var table dashboard = table.new(position.top_right, 3, 12, bgcolor=color.white, border_width=1)
+    
+    // Headers
+    table.cell(dashboard, 0, 0, "Metric", bgcolor=color.navy, text_color=color.white, text_size=size.small)
+    table.cell(dashboard, 1, 0, "Value", bgcolor=color.navy, text_color=color.white, text_size=size.small)
+    table.cell(dashboard, 2, 0, "Status", bgcolor=color.navy, text_color=color.white, text_size=size.small)
+    
+    // Current Metrics
+    table.cell(dashboard, 0, 1, "Price", text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 1, 1, "₹" + str.tostring(close, "#.##"), text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 2, 1, close >= minPrice and close <= maxPrice ? "✓" : "✗", 
+               text_color=close >= minPrice and close <= maxPrice ? color.green : color.red, text_size=size.small)
+    
+    table.cell(dashboard, 0, 2, "RSI", text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 1, 2, str.tostring(rsi, "#.#"), text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 2, 2, rsi > rsi_oversold and rsi < rsi_overbought ? "✓" : "✗", 
+               text_color=rsi > rsi_oversold and rsi < rsi_overbought ? color.green : color.red, text_size=size.small)
+    
+    table.cell(dashboard, 0, 3, "Trend", text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 1, 3, trend_alignment ? "UP" : "DOWN", text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 2, 3, trend_alignment ? "✓" : "✗", 
+               text_color=trend_alignment ? color.green : color.red, text_size=size.small)
+    
+    table.cell(dashboard, 0, 4, "Volume", text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 1, 4, volume_spike ? "SURGE" : "NORMAL", text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 2, 4, volume_confirmation ? "✓" : "✗", 
+               text_color=volume_confirmation ? color.green : color.red, text_size=size.small)
+    
+    table.cell(dashboard, 0, 5, "Structure", text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 1, 5, uptrend_structure ? "BULL" : downtrend_structure ? "BEAR" : "SIDE", text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 2, 5, uptrend_structure ? "✓" : "✗", 
+               text_color=uptrend_structure ? color.green : color.red, text_size=size.small)
+    
+    table.cell(dashboard, 0, 6, "ATR %", text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 1, 6, str.tostring(atr_percent, "#.#") + "%", text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 2, 6, volatility_filter ? "✓" : "✗", 
+               text_color=volatility_filter ? color.green : color.red, text_size=size.small)
+    
+    // Strategy Performance
+    table.cell(dashboard, 0, 7, "Signal", text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 1, 7, entry_signal ? "BUY" : "WAIT", text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 2, 7, entry_signal ? "✓" : "○", 
+               text_color=entry_signal ? color.lime : color.gray, text_size=size.small)
+    
+    table.cell(dashboard, 0, 8, "Position", text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 1, 8, strategy.position_size > 0 ? "LONG" : "FLAT", text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 2, 8, strategy.position_size > 0 ? "●" : "○", 
+               text_color=strategy.position_size > 0 ? color.blue : color.gray, text_size=size.small)
+    
+    table.cell(dashboard, 0, 9, "P&L", text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 1, 9, "₹" + str.tostring(strategy.netprofit, "#"), text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 2, 9, strategy.netprofit >= 0 ? "✓" : "✗", 
+               text_color=strategy.netprofit >= 0 ? color.green : color.red, text_size=size.small)
+    
+    table.cell(dashboard, 0, 10, "Win Rate", text_color=color.black, text_size=size.small)
+    win_rate = strategy.closed_trades > 0 ? (strategy.wintrades / strategy.closed_trades) * 100 : 0
+    table.cell(dashboard, 1, 10, str.tostring(win_rate, "#") + "%", text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 2, 10, win_rate >= 50 ? "✓" : "✗", 
+               text_color=win_rate >= 50 ? color.green : color.red, text_size=size.small)
+    
+    table.cell(dashboard, 0, 11, "Mode", text_color=color.black, text_size=size.small)
+    table.cell(dashboard, 1, 11, strategy_mode, text_color=color.blue, text_size=size.small)
+    table.cell(dashboard, 2, 11, "●", text_color=color.blue, text_size=size.small)
