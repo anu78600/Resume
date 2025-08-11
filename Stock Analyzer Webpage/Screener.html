@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MIDCAP MOMENTUM MASTER v6 — Stocks & Crypto Analysis with News & Heatmap</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:Segoe UI, Tahoma, Geneva, Verdana, sans-serif; background:#f5f7fa; color:#333; }
+
+    /* Live Market */
+    .live-market { background:linear-gradient(135deg,#1a1a2e,#16213e); color:#fff; padding:24px 16px; border-bottom:4px solid #0f3460; }
+    .live-market h2 { text-align:center; margin-bottom:8px; }
+    .live-sub { text-align:center; opacity:.85; }
+    .live-dot { display:inline-block; width:10px; height:10px; background:#0f0; border-radius:50%; margin-right:8px; animation:pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .indices { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-top:18px; }
+    .idx-card { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2); border-radius:10px; padding:16px; text-align:center; }
+    .idx-name { font-size:13px; opacity:.85; margin-bottom:6px; }
+    .idx-val { font-size:22px; font-weight:700; margin-bottom:3px; }
+    .idx-chg { font-size:13px; font-weight:700; }
+    .pos { color:#00ff88; } .neg { color:#ff4d4d; }
+
+    /* Strategy Section */
+    .strategy { background:linear-gradient(135deg,#2c5aa0,#1e4178); color:#fff; padding:36px 16px; }
+    .strategy h1 { text-align:center; font-size:32px; margin-bottom:10px; text-shadow:1px 1px 3px rgba(0,0,0,.3); }
+    .strategy p.sub { text-align:center; opacity:.9; margin-bottom:24px; }
+    .param-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; }
+    .param { background:rgba(255,255,255,.12); border-left:4px solid #4CAF50; border-radius:12px; padding:16px; }
+    .param h3 { color:#4CAF50; font-size:16px; margin-bottom:10px; }
+    .param ul { list-style:none; line-height:1.8; font-size:14px; }
+
+    /* Crypto Section */
+    .crypto-section { background:linear-gradient(135deg,#ff6b35,#f7931e); color:#fff; margin:18px; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.08); overflow:hidden; }
+    .crypto-head { padding:22px; text-align:center; }
+    .crypto-head p { margin-top:10px; opacity:.9; }
+    .crypto-body { padding:22px; background:#fff; color:#333; }
+    .crypto-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:18px; }
+    .crypto-card { position:relative; background:#fff; border:2px solid #e9ecef; border-radius:12px; padding:18px; transition:.25s; }
+    .crypto-card:hover { transform:translateY(-6px); box-shadow:0 14px 28px rgba(0,0,0,.12); border-color:#ff6b35; }
+    .crypto-card.crypto-buy { border-color:#28a745; background:linear-gradient(145deg,#fff,#f8fff9); }
+
+    /* Scanner & Common Card Styles */
+    .scanner { background:#fff; margin:18px; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.08); overflow:hidden; }
+    .scanner-head { background:linear-gradient(135deg,#2c5aa0,#1e4178); color:#fff; padding:22px; text-align:center; }
+    .scanner-head p { margin-top:10px; opacity:.9; }
+    .scanner-body { padding:22px; }
+    .stocks-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:18px; margin-top:16px; }
+    .s-card { position:relative; background:#fff; border:2px solid #e9ecef; border-radius:12px; padding:18px; transition:.25s; }
+    .s-card:hover { transform:translateY(-6px); box-shadow:0 14px 28px rgba(0,0,0,.12); border-color:#2c5aa0; }
+    .s-card.buy { border-color:#28a745; background:linear-gradient(145deg,#fff,#f8fff9); }
+    .s-card.strong { border-color:#007bff; background:linear-gradient(145deg,#fff,#f6f9ff); }
+    .badge { position:absolute; top:-10px; right:14px; padding:6px 12px; border-radius:18px; color:#fff; font-size:12px; font-weight:700; box-shadow:0 6px 14px rgba(0,0,0,.18); }
+    .b-buy { background:linear-gradient(135deg,#28a745,#20c997); }
+    .b-strong { background:linear-gradient(135deg,#007bff,#0056b3); }
+    .b-crypto { background:linear-gradient(135deg,#ff6b35,#f7931e); }
+
+    .sym { color:#2c5aa0; font-weight:700; font-size:18px; }
+    .crypto-sym { color:#ff6b35; font-weight:700; font-size:18px; }
+    .nm { color:#666; font-size:13px; margin-bottom:12px; }
+    .metrics { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:12px 0; }
+    .met { background:#f8f9fa; border-radius:8px; text-align:center; padding:10px; }
+    .met .l { font-size:11px; color:#666; margin-bottom:3px; }
+    .met .v { font-size:15px; font-weight:700; }
+    .bull { color:#28a745; } .neu { color:#f0ad4e; } .bear { color:#dc3545; }
+    .conds { margin-top:10px; padding:12px; border-left:4px solid #2c5aa0; background:linear-gradient(145deg,#f8f9fa,#eef2f7); border-radius:8px; }
+    .conds h4 { font-size:13px; color:#2c5aa0; margin-bottom:6px; }
+    .chips { display:flex; flex-wrap:wrap; gap:6px; }
+    .chip { font-size:10px; padding:4px 8px; border-radius:12px; background:#e3f2fd; color:#1976d2; border:1px solid #e3f2fd; }
+    .chip.ok { background:#e8f5e8; color:#2e7d32; border-color:#4caf50; }
+
+    /* Heatmap Section */
+    .heatmap-section { background:#fff; margin:18px; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.08); overflow:hidden; }
+    .heatmap-head { background:linear-gradient(135deg,#6a1b9a,#8e24aa); color:#fff; padding:22px; text-align:center; }
+    .heatmap-body { padding:22px; }
+    .heatmap-table { width:100%; border-collapse:collapse; margin:16px 0; font-family:monospace; }
+    .heatmap-table th, .heatmap-table td { padding:8px 4px; text-align:center; border:1px solid #ddd; font-size:11px; }
+    .heatmap-table th { background:#6a1b9a; color:#fff; font-weight:bold; }
+    .hm-year { background:#f5f5f5; font-weight:bold; }
+    .hm-pos { background:rgba(76,175,80,0.7); color:#2e7d32; }
+    .hm-neg { background:rgba(244,67,54,0.7); color:#c62828; }
+    .hm-neutral { background:#f5f5f5; color:#666; }
+    .hm-summary { background:rgba(156,39,176,0.8); color:#fff; font-weight:bold; }
+
+    /* News Section */
+    .news-section { background:#fff; margin:18px; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.08); overflow:hidden; }
+    .news-head { background:linear-gradient(135deg,#e91e63,#ad1457); color:#fff; padding:22px; text-align:center; }
+    .news-body { padding:22px; }
+    .news-grid { display:grid; gap:16px; }
+    .news-item { border-left:4px solid #e91e63; padding:16px; background:#fafafa; border-radius:8px; }
+    .news-title { font-weight:bold; color:#333; margin-bottom:8px; font-size:15px; }
+    .news-summary { color:#666; font-size:13px; line-height:1.5; margin-bottom:8px; }
+    .news-meta { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#999; }
+    .news-source { font-weight:bold; color:#e91e63; }
+
+    /* Search / Analyzer */
+    .search { background:linear-gradient(135deg,#2c5aa0,#1e4178); color:#fff; padding:32px 16px; text-align:center; }
+    .search h2 { margin-bottom:8px; }
+    .sbox { max-width:680px; margin:18px auto; position:relative; }
+    .sin { width:100%; padding:16px 56px 16px 16px; border-radius:10px; border:none; outline:none; font-size:16px; box-shadow:0 6px 18px rgba(0,0,0,.15); }
+    .sbtn { position:absolute; right:6px; top:50%; transform:translateY(-50%); background:linear-gradient(135deg,#28a745,#20c997); color:#fff; border:none; padding:10px 14px; border-radius:8px; font-weight:700; cursor:pointer; }
+    .sugg { display:none; position:absolute; left:0; right:0; top:100%; z-index:5; background:#fff; border-radius:0 0 10px 10px; box-shadow:0 10px 28px rgba(0,0,0,.18); max-height:320px; overflow:auto; }
+    .sug { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-bottom:1px solid #eee; cursor:pointer; }
+    .sug:hover { background:#eaf3ff; }
+    .sug-sym { background:linear-gradient(135deg,#2c5aa0,#1e4178); color:#fff; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:700; }
+
+    /* Loading */
+    .loading { display:none; padding:40px; background:#fff; margin:18px; border-radius:12px; box-shadow:0 10px 28px rgba(0,0,0,.1); text-align:center; }
+    .spin { width:56px; height:56px; border:4px solid #f1f1f1; border-top:4px solid #2c5aa0; border-radius:50%; margin:0 auto; animation:rot 1s linear infinite; }
+    @keyframes rot { to { transform:rotate(360deg); } }
+
+    /* Report */
+    .report { display:none; max-width:1200px; margin:0 auto 40px; background:#fff; border-radius:12px; box-shadow:0 10px 28px rgba(0,0,0,.08); overflow:hidden; }
+    .rep-head { background:linear-gradient(135deg,#2c5aa0,#1e4178); color:#fff; padding:36px 16px; text-align:center; }
+    .logo { width:96px; height:96px; background:#fff; color:#2c5aa0; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 14px; font-size:28px; font-weight:800; box-shadow:0 8px 22px rgba(0,0,0,.3); }
+    .rep-sec { padding:26px; border-top:1px solid #eef1f5; }
+    .rep-sec h3 { color:#2c5aa0; border-bottom:3px solid #2c5aa0; padding-bottom:6px; margin-bottom:12px; }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th, td { padding:12px; border-bottom:1px solid #e9ecef; text-align:left; }
+    th { background:#0f3f91; color:#fff; font-size:13px; }
+    .reco { background:linear-gradient(135deg,#28a745,#20c997); color:#fff; text-align:center; padding:18px; border-radius:12px; font-weight:700; }
+    .reco.hold { background:linear-gradient(135deg,#ffc107,#fd7e14); }
+    .reco.sell { background:linear-gradient(135deg,#dc3545,#b51d2a); }
+
+    .notfound { background:#fff; margin:18px; border-radius:12px; box-shadow:0 10px 28px rgba(0,0,0,.08); padding:26px; text-align:center; }
+    .chips2 { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:12px; }
+    .chip2 { background:#e3f2fd; color:#1976d2; padding:8px 14px; border-radius:18px; border:2px solid #e3f2fd; cursor:pointer; }
+
+    /* Responsive */
+    @media (max-width:768px) {
+      .param-grid, .stocks-grid, .crypto-grid, .indices { grid-template-columns:1fr; }
+      .heatmap-table { font-size:9px; }
+      .heatmap-table th, .heatmap-table td { padding:4px 2px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Live Market -->
+  <section class="live-market">
+    <h2><span class="live-dot"></span>Live Market Overview - Stocks & Crypto</h2>
+    <div class="live-sub">Updated: <span id="liveTime">--</span> | Demo Mode</div>
+    <div class="indices">
+      <div class="idx-card">
+        <div class="idx-name">NIFTY 50</div>
+        <div class="idx-val" id="nifty50">24823.15</div>
+        <div class="idx-chg pos" id="nifty50Chg">+0.52%</div>
+      </div>
+      <div class="idx-card">
+        <div class="idx-name">SENSEX</div>
+        <div class="idx-val" id="sensex">81086.21</div>
+        <div class="idx-chg pos" id="sensexChg">+0.48%</div>
+      </div>
+      <div class="idx-card">
+        <div class="idx-name">BITCOIN</div>
+        <div class="idx-val" id="btc">$97,245</div>
+        <div class="idx-chg pos" id="btcChg">+2.1%</div>
+      </div>
+      <div class="idx-card">
+        <div class="idx-name">ETHEREUM</div>
+        <div class="idx-val" id="eth">$3,687</div>
+        <div class="idx-chg pos" id="ethChg">+1.8%</div>
+      </div>
+      <div class="idx-card">
+        <div class="idx-name">VIX</div>
+        <div class="idx-val" id="vix">13.42</div>
+        <div class="idx-chg neg" id="vixChg">-2.04%</div>
+      </div>
+      <div class="idx-card">
+        <div class="idx-name">USD/INR</div>
+        <div class="idx-val" id="usdinr">83.73</div>
+        <div class="idx-chg neg" id="usdinrChg">-0.14%</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Strategy Section -->
+  <section class="strategy">
+    <h1>🚀 MIDCAP MOMENTUM MASTER v6</h1>
+    <p class="sub">Universal Strategy for Stocks & Crypto | EMA Trend + RSI Momentum + Volume Surge + Risk Management</p>
+    <div class="param-grid">
+      <div class="param">
+        <h3>📊 Universe Selection</h3>
+        <ul>
+          <li>Stocks: ₹50 - ₹10,000</li>
+          <li>Crypto: $0.10 - $100,000</li>
+          <li>Min Volume: 500K+ (24h)</li>
+          <li>Market Cap: >$10M</li>
+        </ul>
+      </div>
+      <div class="param">
+        <h3>📈 Trend Analysis</h3>
+        <ul>
+          <li>EMA20 > EMA50 > EMA200</li>
+          <li>Price > EMA20 (Bullish)</li>
+          <li>Higher Highs Pattern</li>
+          <li>Volume Confirmation</li>
+        </ul>
+      </div>
+      <div class="param">
+        <h3>⚡ Momentum Signals</h3>
+        <ul>
+          <li>RSI: 40-80 range (Sweet spot)</li>
+          <li>MACD: Line > Signal</li>
+          <li>Volume Surge: >1.5x average</li>
+          <li>Bollinger: Above middle band</li>
+        </ul>
+      </div>
+      <div class="param">
+        <h3>🛡️ Risk Management</h3>
+        <ul>
+          <li>Position Size: 3% risk per trade</li>
+          <li>Stop Loss: 2% below entry</li>
+          <li>Take Profit: 6% (1:3 R:R)</li>
+          <li>EMA20 trailing stop</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Top Crypto Section -->
+  <section class="crypto-section">
+    <div class="crypto-head">
+      <h2>🪙 Top Crypto Momentum (MMM v6)</h2>
+      <p>Bitcoin, Ethereum, XRP, Solana analyzed with MIDCAP MOMENTUM MASTER v6</p>
+    </div>
+    <div class="crypto-body">
+      <div class="crypto-grid" id="cryptoList"></div>
+    </div>
+  </section>
+
+  <!-- Stock Momentum Scanner -->
+  <section class="scanner">
+    <div class="scanner-head">
+      <h2>📊 Top 5 Stock Momentum (MMM v6)</h2>
+      <p>Indian stocks meeting all MMM v6 criteria</p>
+    </div>
+    <div class="scanner-body">
+      <div class="stocks-grid" id="scannerList"></div>
+    </div>
+  </section>
+
+  <!-- Seasonality Heatmap -->
+  <section class="heatmap-section">
+    <div class="heatmap-head">
+      <h2>🔥 Seasonality Heatmap</h2>
+      <p>Monthly performance patterns for better timing</p>
+    </div>
+    <div class="heatmap-body">
+      <div id="heatmapContainer">
+        <p style="color:#666;text-align:center;">Search for a stock to see its seasonality heatmap</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- News Section -->
+  <section class="news-section">
+    <div class="news-head">
+      <h2>📰 Latest News & Analysis</h2>
+      <p>Market updates and stock-specific news</p>
+    </div>
+    <div class="news-body">
+      <div id="newsContainer">
+        <p style="color:#666;text-align:center;">Search for a stock to see related news</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Search / Analyzer -->
+  <section class="search">
+    <h2>🔍 Universal Analysis (Stocks & Crypto)</h2>
+    <div class="sbox">
+      <input id="q" class="sin" placeholder="Search stocks (MANINFRA, Reliance, TCS) or crypto (BTC, ETH, XRP, SOL)"/>
+      <button class="sbtn" onclick="runSearch()">Analyze</button>
+      <div id="sugg" class="sugg"></div>
+    </div>
+    <div style="margin-top:8px; font-size:13px; opacity:.9;">MMM v6 strategy works for both stocks and cryptocurrencies</div>
+  </section>
+
+  <!-- Loading -->
+  <div class="loading" id="loading">
+    <div class="spin"></div>
+    <h3 style="margin-top:12px;">Applying MMM v6 & fetching news...</h3>
+  </div>
+
+  <!-- Report -->
+  <div class="report" id="report"></div>
+
+<script>
+  // Enhanced database with stocks and crypto
+  const DB = {
+    // STOCKS
+    'man infraconstruction': { type:'stock', name:'Man Infraconstruction Ltd', symbol:'MANINFRA', sector:'Construction & Engineering',
+      price:166, marketCap:6396, pe:22.7, roe:17.5, roce:23.5, debt_equity:0.02, dividend_yield:0.54, revenue_cagr:33,
+      volume:892000, avgVolume:580000, ema20:158, ema50:145, ema200:132, rsi:67.2, macdBullish:true, bbPosition:'upper',
+      recommendation:'BUY', target_price:200
+    },
+    'reliance': { type:'stock', name:'Reliance Industries Ltd', symbol:'RELIANCE', sector:'Oil & Gas',
+      price:1368, marketCap:1850971, pe:24.7, roe:8.51, roce:9.43, debt_equity:0.37, dividend_yield:0.4, revenue_cagr:10.1,
+      volume:2850000, avgVolume:1900000, ema20:1342, ema50:1298, ema200:1245, rsi:58.4, macdBullish:true, bbPosition:'upper',
+      recommendation:'HOLD', target_price:1450
+    },
+    'tcs': { type:'stock', name:'Tata Consultancy Services Ltd', symbol:'TCS', sector:'Information Technology',
+      price:3684, marketCap:1342000, pe:29.2, roe:44.1, roce:42.5, debt_equity:0.02, dividend_yield:3.2, revenue_cagr:8.9,
+      volume:1250000, avgVolume:800000, ema20:3620, ema50:3580, ema200:3450, rsi:62.1, macdBullish:true, bbPosition:'upper',
+      recommendation:'BUY', target_price:4000
+    },
+    'hdfc bank': { type:'stock', name:'HDFC Bank Ltd', symbol:'HDFCBANK', sector:'Banking',
+      price:1973, marketCap:1248000, pe:19.8, roe:16.2, roce:18.5, debt_equity:6.8, dividend_yield:1.0, revenue_cagr:15.6,
+      volume:3200000, avgVolume:2100000, ema20:1945, ema50:1920, ema200:1850, rsi:55.8, macdBullish:true, bbPosition:'middle',
+      recommendation:'BUY', target_price:2100
+    },
+    'bajaj finance': { type:'stock', name:'Bajaj Finance Ltd', symbol:'BAJFINANCE', sector:'Financial Services',
+      price:6895, marketCap:426000, pe:28.5, roe:22.8, roce:12.5, debt_equity:7.2, dividend_yield:0.8, revenue_cagr:24.5,
+      volume:850000, avgVolume:720000, ema20:6780, ema50:6450, ema200:6100, rsi:67.4, macdBullish:true, bbPosition:'upper',
+      recommendation:'BUY', target_price:7500
+    },
+    'asian paints': { type:'stock', name:'Asian Paints Ltd', symbol:'ASIANPAINT', sector:'Paints',
+      price:2945, marketCap:282000, pe:58.4, roe:28.5, roce:32.8, debt_equity:0.01, dividend_yield:0.8, revenue_cagr:8.2,
+      volume:680000, avgVolume:580000, ema20:2920, ema50:2850, ema200:2750, rsi:59.8, macdBullish:true, bbPosition:'middle',
+      recommendation:'HOLD', target_price:3100
+    },
+
+    // CRYPTOCURRENCIES
+    'bitcoin': { type:'crypto', name:'Bitcoin', symbol:'BTC', sector:'Cryptocurrency',
+      price:97245, marketCap:1925000, volume:28500000000, avgVolume:24000000000, 
+      ema20:95500, ema50:91200, ema200:85000, rsi:68.3, macdBullish:true, bbPosition:'upper',
+      recommendation:'BUY', target_price:105000, volatility:4.2, hashrate:'850 EH/s'
+    },
+    'ethereum': { type:'crypto', name:'Ethereum', symbol:'ETH', sector:'Smart Contracts',
+      price:3687, marketCap:445000, volume:15800000000, avgVolume:12500000000,
+      ema20:3620, ema50:3480, ema200:3200, rsi:64.1, macdBullish:true, bbPosition:'upper',
+      recommendation:'BUY', target_price:4200, volatility:5.1, tvl:'$58.2B'
+    },
+    'xrp': { type:'crypto', name:'XRP', symbol:'XRP', sector:'Payments',
+      price:3.45, marketCap:198000, volume:8900000000, avgVolume:6200000000,
+      ema20:3.32, ema50:2.98, ema200:2.15, rsi:71.8, macdBullish:true, bbPosition:'upper',
+      recommendation:'STRONG BUY', target_price:4.50, volatility:8.7, partnerships:350
+    },
+    'solana': { type:'crypto', name:'Solana', symbol:'SOL', sector:'Web3 Platform',
+      price:258.90, marketCap:124000, volume:4200000000, avgVolume:3100000000,
+      ema20:248.50, ema50:228.00, ema200:195.00, rsi:66.4, macdBullish:true, bbPosition:'upper',
+      recommendation:'BUY', target_price:320, volatility:6.8, tps:'65,000'
+    }
+  };
+
+  // Enhanced search list
+  const SEARCH_LIST = Object.values(DB).flatMap(s => [s.name, s.symbol]);
+
+  // MMM v6 Logic (works for both stocks and crypto)
+  function mmmEvaluate(s) {
+    if (!s) return null;
+    
+    // Universe criteria adapted for crypto
+    const universeMin = s.type === 'crypto' ? 0.10 : 50;
+    const universeMax = s.type === 'crypto' ? 100000 : 10000;
+    const volumeMin = s.type === 'crypto' ? 1000000 : 500000;
+    
+    const universe_ok = s.price >= universeMin && s.price <= universeMax && s.volume >= volumeMin;
+    const trend_up = s.ema20 > s.ema50 && s.ema50 > s.ema200 && s.price > s.ema20;
+    const momentum_ok = s.rsi >= 40 && s.rsi <= 80 && !!s.macdBullish;
+    const vol_surge = s.volume > (s.avgVolume * 1.5);
+    const volatility_ok = s.bbPosition === 'upper' || s.bbPosition === 'middle';
+    const base_long = universe_ok && trend_up && momentum_ok && volatility_ok && vol_surge;
+    const breakout_long = universe_ok && vol_surge && s.rsi > 50 && s.rsi < 80;
+    const momentum_long = universe_ok && trend_up && s.rsi > 60;
+    const final_signal = base_long || breakout_long || momentum_long;
+    const strength = base_long ? 'STRONG' : (final_signal ? 'MODERATE' : 'WEAK');
+    return { universe_ok, trend_up, momentum_ok, vol_surge, volatility_ok, base_long, breakout_long, momentum_long, final_signal, strength };
+  }
+
+  // Seasonality Heatmap Generator (converted from Pine Script)
+  function generateSeasonalityHeatmap(symbol) {
+    // Simulated monthly data for the last 5 years
+    const currentYear = new Date().getFullYear();
+    const startYear = currentYear - 4;
+    const years = [];
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    
+    // Generate realistic seasonal data
+    const seasonalData = {};
+    for (let year = startYear; year <= currentYear; year++) {
+      seasonalData[year] = {};
+      for (let month = 0; month < 12; month++) {
+        // Create realistic seasonal patterns
+        let performance = (Math.random() - 0.5) * 0.2; // Base random
+        
+        // Add seasonal bias (example: stronger Q4, weaker summer)
+        if (month >= 9) performance += 0.03; // Q4 strength
+        if (month >= 5 && month <= 7) performance -= 0.02; // Summer weakness
+        
+        seasonalData[year][month] = performance;
+      }
+    }
+    
+    let tableHTML = `
+      <table class="heatmap-table">
+        <thead>
+          <tr>
+            <th>Year</th>
+            ${monthNames.map(m => `<th>${m}</th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>
+    `;
+    
+    // Data rows
+    for (let year = startYear; year <= currentYear; year++) {
+      tableHTML += `<tr><td class="hm-year">${year}</td>`;
+      for (let month = 0; month < 12; month++) {
+        const val = seasonalData[year][month];
+        const pct = (val * 100).toFixed(1);
+        const cellClass = val > 0.02 ? 'hm-pos' : val < -0.02 ? 'hm-neg' : 'hm-neutral';
+        tableHTML += `<td class="${cellClass}">${pct}%</td>`;
+      }
+      tableHTML += '</tr>';
+    }
+    
+    // Summary rows
+    tableHTML += '<tr><td class="hm-summary">AVG</td>';
+    for (let month = 0; month < 12; month++) {
+      let sum = 0, count = 0;
+      for (let year = startYear; year <= currentYear; year++) {
+        sum += seasonalData[year][month];
+        count++;
+      }
+      const avg = sum / count;
+      const pct = (avg * 100).toFixed(1);
+      const cellClass = avg > 0.01 ? 'hm-pos' : avg < -0.01 ? 'hm-neg' : 'hm-neutral';
+      tableHTML += `<td class="hm-summary ${cellClass}">${pct}%</td>`;
+    }
+    tableHTML += '</tr>';
+    
+    // Win rate row
+    tableHTML += '<tr><td class="hm-summary">Win Rate</td>';
+    for (let month = 0; month < 12; month++) {
+      let wins = 0, total = 0;
+      for (let year = startYear; year <= currentYear; year++) {
+        if (seasonalData[year][month] > 0) wins++;
+        total++;
+      }
+      const winRate = ((wins / total) * 100).toFixed(0);
+      const cellClass = winRate >= 60 ? 'hm-pos' : winRate <= 40 ? 'hm-neg' : 'hm-neutral';
+      tableHTML += `<td class="hm-summary ${cellClass}">${winRate}%</td>`;
+    }
+    tableHTML += '</tr>';
+    
+    tableHTML += '</tbody></table>';
+    
+    return `
+      <div style="text-align:center;margin-bottom:16px;">
+        <h4>Seasonality Analysis: ${symbol}</h4>
+        <p style="color:#666;font-size:13px;">Monthly performance patterns (${startYear}-${currentYear})</p>
+      </div>
+      ${tableHTML}
+      <div style="margin-top:16px;font-size:12px;color:#666;">
+        <p><strong>Interpretation:</strong> Green = Historically strong months, Red = Weak months, Gray = Neutral</p>
+        <p><strong>Win Rate:</strong> Percentage of months with positive returns</p>
+      </div>
+    `;
+  }
+
+  // News Generator
+  function generateNews(symbol, name) {
+    const newsTemplates = [
+      {
+        title: `${name} Reports Strong Q4 Earnings, Beats Estimates`,
+        summary: `${name} delivered robust quarterly results with revenue growth exceeding analyst expectations. The company's strategic initiatives and market expansion continue to drive performance.`,
+        source: 'Economic Times',
+        time: '2 hours ago'
+      },
+      {
+        title: `Analysts Upgrade ${name} on Strong Fundamentals`,
+        summary: `Leading brokerages raised their price targets for ${symbol} citing improved operational efficiency and favorable market conditions. The stock shows strong technical momentum.`,
+        source: 'Moneycontrol',
+        time: '4 hours ago'
+      },
+      {
+        title: `${name} Announces Strategic Partnership for Growth`,
+        summary: `The company has entered into a significant partnership that is expected to boost revenue streams and enhance market presence in key segments.`,
+        source: 'Business Standard',
+        time: '6 hours ago'
+      },
+      {
+        title: `Market Outlook: ${name} Well-Positioned for Sector Recovery`,
+        summary: `Industry analysis suggests ${name} is strategically positioned to benefit from the ongoing sector recovery with strong fundamentals and competitive advantages.`,
+        source: 'CNBC-TV18',
+        time: '8 hours ago'
+      },
+      {
+        title: `Technical Analysis: ${symbol} Shows Bullish Momentum`,
+        summary: `Chart patterns indicate strong momentum build-up in ${symbol} with key resistance levels being tested. Volume surge supports the upward trajectory.`,
+        source: 'TradingView',
+        time: '12 hours ago'
+      }
+    ];
+    
+    return newsTemplates.map(news => `
+      <div class="news-item">
+        <div class="news-title">${news.title}</div>
+        <div class="news-summary">${news.summary}</div>
+        <div class="news-meta">
+          <span class="news-source">${news.source}</span>
+          <span>${news.time}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // Time and market updates
+  function updateLive() {
+    document.getElementById('liveTime').textContent = new Intl.DateTimeFormat('en-IN', {
+      timeZone:'Asia/Kolkata', hour:'2-digit', minute:'2-digit', second:'2-digit'
+    }).format(new Date());
+  }
+
+  function tick(id, chgId, range=1.2) {
+    const vEl = document.getElementById(id); const cEl = document.getElementById(chgId);
+    if (!vEl || !cEl) return;
+    let v = parseFloat(vEl.textContent.replace(/[$,]/g,'')) || 0;
+    const delta = v * ((Math.random() - .5) * (range/100));
+    v = Math.max(0, v + delta);
+    vEl.textContent = id.includes('btc') || id.includes('eth') ? '$' + v.toLocaleString('en-IN', {maximumFractionDigits:0}) : v.toLocaleString('en-IN', {maximumFractionDigits:2});
+    const pct = (Math.random() * 4 - 2);
+    cEl.textContent = (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%';
+    cEl.className = 'idx-chg ' + (pct >= 0 ? 'pos' : 'neg');
+  }
+
+  function randomTicks() {
+    ['nifty50','sensex','btc','eth','vix','usdinr'].forEach(id => tick(id, id+'Chg'));
+  }
+
+  // Build scanners
+  function buildCryptoScanner() {
+    const cryptos = Object.values(DB).filter(s => s.type === 'crypto');
+    const el = document.getElementById('cryptoList');
+    
+    el.innerHTML = cryptos.map(s => {
+      const ev = mmmEvaluate(s);
+      const volRatio = (s.volume/s.avgVolume).toFixed(1);
+      const rsiClass = s.rsi>70?'bear':(s.rsi>50?'bull':'neu');
+      const cardCls = ev && ev.final_signal ? 'crypto-card crypto-buy' : 'crypto-card';
+      
+      return `
+        <div class="${cardCls}" onclick="selectSuggestion('${s.symbol}')">
+          ${ev && ev.final_signal ? '<div class="badge b-crypto">CRYPTO BUY</div>' : ''}
+          <div class="crypto-sym">${s.symbol}</div>
+          <div class="nm">${s.name}</div>
+          <div class="metrics">
+            <div class="met"><div class="l">Price</div><div class="v">$${s.price.toLocaleString()}</div></div>
+            <div class="met"><div class="l">RSI</div><div class="v ${rsiClass}">${s.rsi}</div></div>
+            <div class="met"><div class="l">24h Vol</div><div class="v ${volRatio>1.5?'bull':'neu'}">${volRatio}x</div></div>
+            <div class="met"><div class="l">Trend</div><div class="v ${ev && ev.trend_up?'bull':'bear'}">${ev && ev.trend_up?'UP':'DOWN'}</div></div>
+          </div>
+          <div class="conds">
+            <h4>MMM v6 Conditions</h4>
+            <div class="chips">
+              ${ev ? `
+              <span class="chip ${ev.universe_ok?'ok':''}">Universe</span>
+              <span class="chip ${ev.trend_up?'ok':''}">EMA</span>
+              <span class="chip ${ev.momentum_ok?'ok':''}">RSI/MACD</span>
+              <span class="chip ${ev.vol_surge?'ok':''}">Volume</span>
+              <span class="chip ${ev.volatility_ok?'ok':''}">Bollinger</span>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  function buildStockScanner() {
+    const stocks = Object.values(DB).filter(s => s.type === 'stock').map(s => ({ s, eval:mmmEvaluate(s) }))
+      .filter(x => x.eval && x.eval.final_signal)
+      .sort((a,b) => {
+        const rankA = (a.eval.base_long?2:1) + (a.s.volume/a.s.avgVolume);
+        const rankB = (b.eval.base_long?2:1) + (b.s.volume/b.s.avgVolume);
+        return rankB - rankA;
+      })
+      .slice(0,5);
+      
+    const el = document.getElementById('scannerList');
+    el.innerHTML = stocks.map(({s, eval:ev}) => {
+      const volRatio = (s.volume/s.avgVolume).toFixed(1);
+      const rsiClass = s.rsi>70?'bear':(s.rsi>50?'bull':'neu');
+      const cardCls = ev.strength==='STRONG' ? 's-card strong' : 's-card buy';
+      const badgeCls = ev.strength==='STRONG' ? 'badge b-strong' : 'badge b-buy';
+      const badgeTxt = ev.strength==='STRONG' ? 'STRONG BUY' : 'BUY';
+      
+      return `
+        <div class="${cardCls}" onclick="selectSuggestion('${s.symbol}')">
+          <div class="${badgeCls}">${badgeTxt}</div>
+          <div class="sym">${s.symbol}</div>
+          <div class="nm">${s.name}</div>
+          <div class="metrics">
+            <div class="met"><div class="l">Price</div><div class="v">₹${s.price.toLocaleString()}</div></div>
+            <div class="met"><div class="l">RSI</div><div class="v ${rsiClass}">${s.rsi}</div></div>
+            <div class="met"><div class="l">Vol Surge</div><div class="v ${volRatio>1.5?'bull':'neu'}">${volRatio}x</div></div>
+            <div class="met"><div class="l">Trend</div><div class="v ${ev.trend_up?'bull':'bear'}">${ev.trend_up?'UP':'DOWN'}</div></div>
+          </div>
+          <div class="conds">
+            <h4>MMM v6 Conditions</h4>
+            <div class="chips">
+              <span class="chip ${ev.universe_ok?'ok':''}">Universe</span>
+              <span class="chip ${ev.trend_up?'ok':''}">EMA</span>
+              <span class="chip ${ev.momentum_ok?'ok':''}">RSI/MACD</span>
+              <span class="chip ${ev.vol_surge?'ok':''}">Volume</span>
+              <span class="chip ${ev.volatility_ok?'ok':''}">Bollinger</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('') || `<div style="text-align:center;color:#666;">No stocks meet MMM v6 criteria currently</div>`;
+  }
+
+  // Search functionality
+  const qEl = document.getElementById('q');
+  const suggEl = document.getElementById('sugg');
+  
+  qEl.addEventListener('input', () => {
+    const q = qEl.value.trim().toLowerCase();
+    if (q.length < 2) { suggEl.style.display='none'; return; }
+    const matches = SEARCH_LIST.filter(x => x.toLowerCase().includes(q)).slice(0,10);
+    if (!matches.length) { suggEl.style.display='none'; return; }
+    suggEl.innerHTML = matches.map(m => {
+      const sym = getSymbol(m);
+      return `<div class="sug" onclick="selectSuggestion('${m}')"><span>${m}</span><span class="sug-sym">${sym}</span></div>`;
+    }).join('');
+    suggEl.style.display='block';
+  });
+
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.sbox')) suggEl.style.display='none';
+  });
+
+  function getSymbol(nameOrSymbol) {
+    const q = nameOrSymbol.toLowerCase();
+    for (const k in DB) {
+      const s = DB[k];
+      if (s.symbol.toLowerCase()===q || s.name.toLowerCase()===q || k===q) return s.symbol;
+      if (s.name.toLowerCase().includes(q) || s.symbol.toLowerCase().includes(q)) return s.symbol;
+    }
+    return nameOrSymbol.toUpperCase().substring(0,8);
+  }
+
+  function selectSuggestion(txt) {
+    qEl.value = txt;
+    suggEl.style.display='none';
+    runSearch();
+  }
+
+  function runSearch() {
+    const key = qEl.value.trim().toLowerCase();
+    if (!key) { alert('Please enter a stock or crypto'); return; }
+    document.getElementById('loading').style.display='block';
+    document.getElementById('report').style.display='none';
+    
+    setTimeout(() => {
+      const data = findAsset(key);
+      if (!data) {
+        showNotFound(key);
+      } else {
+        renderReport(data);
+        updateNewsSection(data.symbol, data.name);
+        updateHeatmapSection(data.symbol);
+      }
+      document.getElementById('loading').style.display='none';
+    }, 1200);
+  }
+
+  function findAsset(q) {
+    if (DB[q]) return DB[q];
+    for (const k in DB) if (DB[k].symbol.toLowerCase()===q) return DB[k];
+    for (const k in DB) if (DB[k].name.toLowerCase().includes(q)) return DB[k];
+    for (const k in DB) if (DB[k].symbol.toLowerCase().includes(q)) return DB[k];
+    const parts = q.split(/\s+/);
+    for (const k in DB) {
+      const s = DB[k];
+      const w = s.name.toLowerCase().split(/\s+/);
+      if (parts.some(p => w.some(t => t.includes(p) || p.includes(t)))) return s;
+    }
+    return null;
+  }
+
+  function updateNewsSection(symbol, name) {
+    document.getElementById('newsContainer').innerHTML = `
+      <h4 style="margin-bottom:16px;color:#333;">${name} (${symbol}) - Latest News</h4>
+      <div class="news-grid">
+        ${generateNews(symbol, name)}
+      </div>
+    `;
+  }
+
+  function updateHeatmapSection(symbol) {
+    document.getElementById('heatmapContainer').innerHTML = generateSeasonalityHeatmap(symbol);
+  }
+
+  function renderReport(s) {
+    const ev = mmmEvaluate(s);
+    const upside = s.target_price ? Math.round(((s.target_price - s.price)/s.price)*100) : 0;
+    const currencySymbol = s.type === 'crypto' ? '$' : '₹';
+    
+    const rep = document.getElementById('report');
+    rep.innerHTML = `
+      <div class="rep-head">
+        <div class="logo">${s.symbol.substring(0,3)}</div>
+        <h2>${s.name} ${s.type === 'crypto' ? '🪙' : '📊'}</h2>
+        <div style="opacity:.9;margin-top:6px;">${s.type === 'crypto' ? 'Cryptocurrency' : 'Sector'}: ${s.sector} | Symbol: ${s.symbol}</div>
+      </div>
+
+      <div class="rep-sec">
+        <h3>MMM v6 Analysis Summary</h3>
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;">
+          <div>
+            <table>
+              <tbody>
+                <tr><td><b>Current Price</b></td><td>${currencySymbol}${s.price.toLocaleString()}</td></tr>
+                <tr><td><b>Market Cap</b></td><td>${currencySymbol}${(s.marketCap||0).toLocaleString()}${s.type==='crypto'?'M':'Cr'}</td></tr>
+                ${s.type === 'stock' ? `<tr><td><b>P/E Ratio</b></td><td>${s.pe ?? '—'}</td></tr>` : ''}
+                ${s.type === 'stock' ? `<tr><td><b>ROE</b></td><td>${s.roe ?? '—'}%</td></tr>` : ''}
+                ${s.type === 'crypto' ? `<tr><td><b>24h Volume</b></td><td>$${(s.volume/1000000).toFixed(0)}M</td></tr>` : ''}
+                ${s.type === 'crypto' ? `<tr><td><b>Volatility</b></td><td>${s.volatility ?? '—'}%</td></tr>` : ''}
+                <tr><td><b>RSI</b></td><td>${s.rsi}</td></tr>
+                <tr><td><b>MACD</b></td><td>${s.macdBullish ? '✅ Bullish' : '❌ Bearish'}</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="reco ${String(s.recommendation||'BUY').toLowerCase()}">
+            <div style="font-size:14px;margin-bottom:6px;">MMM v6 Recommendation</div>
+            <div style="font-size:30px;font-weight:800;">${s.recommendation||'BUY'}</div>
+            <div style="margin-top:8px;">Target: ${currencySymbol}${(s.target_price||s.price).toLocaleString()}</div>
+            <div style="margin-top:4px;">Expected: ${upside>=0?'+':''}${upside}%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rep-sec">
+        <h3>MMM v6 Strategy Evaluation</h3>
+        ${ev ? `
+        <table>
+          <thead><tr><th>Filter</th><th>Status</th><th>Current Value</th><th>Requirement</th></tr></thead>
+          <tbody>
+            <tr><td>Universe</td><td>${ev.universe_ok?'✅ PASS':'❌ FAIL'}</td><td>${currencySymbol}${s.price} | Vol ${s.type==='crypto'?'$'+(s.volume/1000000).toFixed(0)+'M':(s.volume/1000).toFixed(0)+'K'}</td><td>${s.type==='crypto'?'$0.1-100K | >1M':'₹50-10K | >500K'}</td></tr>
+            <tr><td>EMA Trend</td><td>${ev.trend_up?'✅ UPTREND':'❌ DOWNTREND'}</td><td>20:${s.ema20} | 50:${s.ema50} | 200:${s.ema200}</td><td>20>50>200 & Price>20</td></tr>
+            <tr><td>Momentum</td><td>${ev.momentum_ok?'✅ IN RANGE':'❌ OUT OF RANGE'}</td><td>RSI ${s.rsi} | MACD ${s.macdBullish?'Bullish':'Bearish'}</td><td>RSI 40-80, MACD Bullish</td></tr>
+            <tr><td>Volume Surge</td><td>${ev.vol_surge?'✅ SURGE':'❌ NORMAL'}</td><td>${(s.volume/s.avgVolume).toFixed(1)}x average</td><td>> 1.5x average volume</td></tr>
+            <tr><td>Bollinger</td><td>${ev.volatility_ok?'✅ ABOVE MID':'❌ BELOW MID'}</td><td>${s.bbPosition?.toUpperCase()||'—'}</td><td>Above middle band</td></tr>
+            <tr><td><b>Final Signal</b></td><td colspan="3"><b style="color:${ev.final_signal?'#28a745':'#ffc107'}">${ev.final_signal ? (ev.base_long ? 'STRONG BUY' : 'BUY') : 'WAIT'}</b> | Strength: ${ev.strength}</td></tr>
+          </tbody>
+        </table>
+        ` : '<div style="color:#666;">Strategy evaluation unavailable</div>'}
+      </div>
+
+      <div class="rep-sec">
+        <h3>Position Sizing Calculator</h3>
+        <table>
+          <tbody>
+            <tr><td><b>Entry Price</b></td><td>${currencySymbol}${s.price.toLocaleString()}</td></tr>
+            <tr><td><b>Stop Loss (2%)</b></td><td style="color:#dc3545;">${currencySymbol}${(s.price*0.98).toFixed(2)}</td></tr>
+            <tr><td><b>Take Profit (6%)</b></td><td style="color:#28a745;">${currencySymbol}${(s.price*1.06).toFixed(2)}</td></tr>
+            <tr><td><b>Risk:Reward</b></td><td>1:3</td></tr>
+            <tr><td><b>Risk per Trade</b></td><td>3% of portfolio</td></tr>
+            <tr><td><b>Shares for ${s.type==='crypto'?'$10K':'₹1L'}</b></td><td>${Math.floor((s.type==='crypto'?300:3000)/(s.price*0.02))} ${s.type==='crypto'?'coins':'shares'}</td></tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+    rep.style.display='block';
+  }
+
+  function showNotFound(q) {
+    const rep = document.getElementById('report');
+    const avail = Object.values(DB).slice(0,8);
+    rep.innerHTML = `
+      <div class="notfound">
+        <h3 style="color:#c82333;">${q.toUpperCase()} Not Found</h3>
+        <p style="margin:8px 0;">Searched for: <b>"${q}"</b></p>
+        <div style="margin:14px 0; color:#555;">Try one of these available assets:</div>
+        <div class="chips2">
+          ${avail.map(s => `<span class="chip2" onclick="selectSuggestion('${s.symbol}')">${s.symbol} ${s.type==='crypto'?'🪙':'📊'}</span>`).join('')}
+        </div>
+      </div>
+    `;
+    rep.style.display='block';
+  }
+
+  // Initialize everything
+  function init() {
+    updateLive();
+    buildStockScanner();
+    buildCryptoScanner();
+    setInterval(updateLive, 1000);
+    setInterval(randomTicks, 12000);
+    qEl.addEventListener('keypress', e => { if (e.key==='Enter') runSearch(); });
+  }
+  
+  init();
+</script>
+</body>
+</html>
