@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MIDCAP MOMENTUM MASTER v6 — Live Market, Momentum Scanner, Universal Analysis (API-Ready)</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:Segoe UI, Tahoma, Geneva, Verdana, sans-serif; background:#f5f7fa; color:#333; }
+
+    /* Live Market */
+    .live-market { background:linear-gradient(135deg,#1a1a2e,#16213e); color:#fff; padding:24px 16px; border-bottom:4px solid #0f3460; }
+    .live-market h2 { text-align:center; margin-bottom:8px; }
+    .live-sub { text-align:center; opacity:.85; }
+    .live-dot { display:inline-block; width:10px; height:10px; background:#0f0; border-radius:50%; margin-right:8px; animation:pulse 1.5s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+    .indices { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:16px; margin-top:18px; }
+    .idx-card { background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2); border-radius:10px; padding:16px; text-align:center; }
+    .idx-name { font-size:13px; opacity:.85; margin-bottom:6px; }
+    .idx-val { font-size:22px; font-weight:700; margin-bottom:3px; }
+    .idx-chg { font-size:13px; font-weight:700; }
+    .pos { color:#00ff88; } .neg { color:#ff4d4d; }
+
+    /* Strategy Section */
+    .strategy { background:linear-gradient(135deg,#2c5aa0,#1e4178); color:#fff; padding:36px 16px; }
+    .strategy h1 { text-align:center; font-size:32px; margin-bottom:10px; text-shadow:1px 1px 3px rgba(0,0,0,.3); }
+    .strategy p.sub { text-align:center; opacity:.9; margin-bottom:24px; }
+    .param-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px; }
+    .param { background:rgba(255,255,255,.12); border-left:4px solid #4CAF50; border-radius:12px; padding:16px; }
+    .param h3 { color:#4CAF50; font-size:16px; margin-bottom:10px; }
+    .param ul { list-style:none; line-height:1.8; font-size:14px; }
+    .codewrap { margin-top:22px; background:rgba(0,0,0,.35); border-left:4px solid #4CAF50; border-radius:10px; padding:16px; overflow:auto; }
+    .codewrap h3 { margin-bottom:8px; color:#4CAF50; }
+    pre { font-family:Consolas, monospace; font-size:11px; color:#e6e6e6; line-height:1.45; }
+
+    /* Momentum Scanner */
+    .scanner { background:#fff; margin:18px; border-radius:14px; box-shadow:0 8px 24px rgba(0,0,0,.08); overflow:hidden; }
+    .scanner-head { background:linear-gradient(135deg,#2c5aa0,#1e4178); color:#fff; padding:22px; text-align:center; }
+    .scanner-head p { margin-top:10px; opacity:.9; }
+    .scanner-body { padding:22px; }
+    .stocks-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:18px; margin-top:16px; }
+    .s-card { position:relative; background:#fff; border:2px solid #e9ecef; border-radius:12px; padding:18px; transition:.25s; }
+    .s-card:hover { transform:translateY(-6px); box-shadow:0 14px 28px rgba(0,0,0,.12); border-color:#2c5aa0; }
+    .s-card.buy { border-color:#28a745; background:linear-gradient(145deg,#fff,#f8fff9); }
+    .s-card.strong { border-color:#007bff; background:linear-gradient(145deg,#fff,#f6f9ff); }
+    .badge { position:absolute; top:-10px; right:14px; padding:6px 12px; border-radius:18px; color:#fff; font-size:12px; font-weight:700; box-shadow:0 6px 14px rgba(0,0,0,.18); }
+    .b-buy { background:linear-gradient(135deg,#28a745,#20c997); }
+    .b-strong { background:linear-gradient(135deg,#007bff,#0056b3); }
+
+    .sym { color:#2c5aa0; font-weight:700; font-size:18px; }
+    .nm { color:#666; font-size:13px; margin-bottom:12px; }
+    .metrics { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:12px 0; }
+    .met { background:#f8f9fa; border-radius:8px; text-align:center; padding:10px; }
+    .met .l { font-size:11px; color:#666; margin-bottom:3px; }
+    .met .v { font-size:15px; font-weight:700; }
+    .bull { color:#28a745; } .neu { color:#f0ad4e; } .bear { color:#dc3545; }
+    .conds { margin-top:10px; padding:12px; border-left:4px solid #2c5aa0; background:linear-gradient(145deg,#f8f9fa,#eef2f7); border-radius:8px; }
+    .conds h4 { font-size:13px; color:#2c5aa0; margin-bottom:6px; }
+    .chips { display:flex; flex-wrap:wrap; gap:6px; }
+    .chip { font-size:10px; padding:4px 8px; border-radius:12px; background:#e3f2fd; color:#1976d2; border:1px solid #e3f2fd; }
+    .chip.ok { background:#e8f5e8; color:#2e7d32; border-color:#4caf50; }
+
+    /* Search / Analyzer */
+    .search { background:linear-gradient(135deg,#2c5aa0,#1e4178); color:#fff; padding:32px 16px; text-align:center; }
+    .search h2 { margin-bottom:8px; }
+    .sbox { max-width:680px; margin:18px auto; position:relative; }
+    .sin { width:100%; padding:16px 56px 16px 16px; border-radius:10px; border:none; outline:none; font-size:16px; box-shadow:0 6px 18px rgba(0,0,0,.15); }
+    .sbtn { position:absolute; right:6px; top:50%; transform:translateY(-50%); background:linear-gradient(135deg,#28a745,#20c997); color:#fff; border:none; padding:10px 14px; border-radius:8px; font-weight:700; cursor:pointer; }
+    .sugg { display:none; position:absolute; left:0; right:0; top:100%; z-index:5; background:#fff; border-radius:0 0 10px 10px; box-shadow:0 10px 28px rgba(0,0,0,.18); max-height:320px; overflow:auto; }
+    .sug { display:flex; justify-content:space-between; align-items:center; padding:12px 14px; border-bottom:1px solid #eee; cursor:pointer; }
+    .sug:hover { background:#eaf3ff; }
+    .sug-sym { background:linear-gradient(135deg,#2c5aa0,#1e4178); color:#fff; padding:3px 10px; border-radius:12px; font-size:12px; font-weight:700; }
+
+    /* Loading */
+    .loading { display:none; padding:40px; background:#fff; margin:18px; border-radius:12px; box-shadow:0 10px 28px rgba(0,0,0,.1); text-align:center; }
+    .spin { width:56px; height:56px; border:4px solid #f1f1f1; border-top:4px solid #2c5aa0; border-radius:50%; margin:0 auto; animation:rot 1s linear infinite; }
+    @keyframes rot { to { transform:rotate(360deg); } }
+
+    /* Report */
+    .report { display:none; max-width:1200px; margin:0 auto 40px; background:#fff; border-radius:12px; box-shadow:0 10px 28px rgba(0,0,0,.08); overflow:hidden; }
+    .rep-head { background:linear-gradient(135deg,#2c5aa0,#1e4178); color:#fff; padding:36px 16px; text-align:center; }
+    .logo { width:96px; height:96px; background:#fff; color:#2c5aa0; border-radius:50%; display:flex; align-items:center; justify-content:center; margin:0 auto 14px; font-size:28px; font-weight:800; box-shadow:0 8px 22px rgba(0,0,0,.3); }
+    .rep-sec { padding:26px; border-top:1px solid #eef1f5; }
+    .rep-sec h3 { color:#2c5aa0; border-bottom:3px solid #2c5aa0; padding-bottom:6px; margin-bottom:12px; }
+    table { width:100%; border-collapse:collapse; margin-top:8px; }
+    th, td { padding:12px; border-bottom:1px solid #e9ecef; text-align:left; }
+    th { background:#0f3f91; color:#fff; font-size:13px; }
+    .reco { background:linear-gradient(135deg,#28a745,#20c997); color:#fff; text-align:center; padding:18px; border-radius:12px; font-weight:700; }
+    .reco.hold { background:linear-gradient(135deg,#ffc107,#fd7e14); }
+    .reco.sell { background:linear-gradient(135deg,#dc3545,#b51d2a); }
+
+    .notfound { background:#fff; margin:18px; border-radius:12px; box-shadow:0 10px 28px rgba(0,0,0,.08); padding:26px; text-align:center; }
+    .chips2 { display:flex; flex-wrap:wrap; gap:10px; justify-content:center; margin-top:12px; }
+    .chip2 { background:#e3f2fd; color:#1976d2; padding:8px 14px; border-radius:18px; border:2px solid #e3f2fd; cursor:pointer; }
+  </style>
+</head>
+<body>
+
+  <!-- Live Market -->
+  <section class="live-market">
+    <h2><span class="live-dot"></span>Live Indian Market Overview</h2>
+    <div class="live-sub">Updated: <span id="liveTime">--</span> | Demo Mode (random ticks)</div>
+    <div class="indices" id="indices">
+      <div class="idx-card">
+        <div class="idx-name">NIFTY 50</div>
+        <div class="idx-val" id="nifty50">24823.15</div>
+        <div class="idx-chg pos" id="nifty50Chg">+0.52%</div>
+      </div>
+      <div class="idx-card">
+        <div class="idx-name">SENSEX</div>
+        <div class="idx-val" id="sensex">81086.21</div>
+        <div class="idx-chg pos" id="sensexChg">+0.48%</div>
+      </div>
+      <div class="idx-card">
+        <div class="idx-name">NIFTY MIDCAP 150</div>
+        <div class="idx-val" id="midcap150">18439.85</div>
+        <div class="idx-chg pos" id="midcap150Chg">+0.54%</div>
+      </div>
+      <div class="idx-card">
+        <div class="idx-name">NIFTY SMALLCAP 250</div>
+        <div class="idx-val" id="smallcap250">17284.90</div>
+        <div class="idx-chg pos" id="smallcap250Chg">+0.91%</div>
+      </div>
+      <div class="idx-card">
+        <div class="idx-name">VIX</div>
+        <div class="idx-val" id="vix">13.42</div>
+        <div class="idx-chg neg" id="vixChg">-2.04%</div>
+      </div>
+      <div class="idx-card">
+        <div class="idx-name">USD/INR</div>
+        <div class="idx-val" id="usdinr">83.73</div>
+        <div class="idx-chg neg" id="usdinrChg">-0.14%</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Strategy Section -->
+  <section class="strategy">
+    <h1>MIDCAP MOMENTUM MASTER v6</h1>
+    <p class="sub">EMA Trend + RSI Momentum + Volume Surge + Bollinger Filter + Risk Management</p>
+    <div class="param-grid">
+      <div class="param">
+        <h3>Universe Selection</h3>
+        <ul>
+          <li>Min Price: ₹50</li>
+          <li>Max Price: ₹10,000</li>
+          <li>Min Volume: 500,000</li>
+        </ul>
+      </div>
+      <div class="param">
+        <h3>Trend Analysis</h3>
+        <ul>
+          <li>EMA20 > EMA50 > EMA200</li>
+          <li>Close > EMA20</li>
+        </ul>
+      </div>
+      <div class="param">
+        <h3>Momentum</h3>
+        <ul>
+          <li>RSI in 40-80</li>
+          <li>MACD line > Signal</li>
+          <li>Volume > 1.5x avg</li>
+        </ul>
+      </div>
+      <div class="param">
+        <h3>Risk Management</h3>
+        <ul>
+          <li>Risk 3% | SL 2% | TP 3R</li>
+          <li>EMA20 exit</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="codewrap">
+      <h3>Original Pine Script (read-only):</h3>
+      <pre>
+//@version=6
+strategy("MIDCAP MOMENTUM MASTER v6", shorttitle="MMM", overlay=true, max_bars_back=500,
+         default_qty_type=strategy.percent_of_equity, default_qty_value=15,
+         commission_type=strategy.commission.percent, commission_value=0.03, slippage=2)
+
+// INPUT PARAMETERS
+minPrice = input.float(50, "Minimum Price", minval=1, group="Universe Selection")
+maxPrice = input.float(10000, "Maximum Price", minval=1, group="Universe Selection")
+minVolume = input.int(500000, "Minimum Daily Volume", minval=10000, group="Universe Selection")
+
+ema20_len = input.int(20, "20 EMA Length", group="Trend Analysis")
+ema50_len = input.int(50, "50 EMA Length", group="Trend Analysis")
+ema200_len = input.int(200, "200 EMA Length", group="Trend Analysis")
+
+rsi_len = input.int(14, "RSI Length", group="Momentum")
+rsi_low = input.float(40, "RSI Lower", minval=0, maxval=100, group="Momentum")
+rsi_high = input.float(80, "RSI Upper", minval=0, maxval=100, group="Momentum")
+vol_mult = input.float(1.5, "Volume Multiplier", minval=1.0, group="Momentum")
+
+bb_len = input.int(20, "BB Length", group="Volatility")
+bb_mult = input.float(2.0, "BB Multiplier", group="Volatility")
+atr_len = input.int(14, "ATR Length", group="Volatility")
+
+risk_pct = input.float(3.0, "Risk %", minval=0.5, maxval=10, group="Risk Management")
+sl_pct = input.float(2.0, "Stop Loss %", minval=0.5, maxval=5, group="Risk Management")
+tp_mult = input.float(3.0, "Take Profit Multiplier", minval=1.5, maxval=10, group="Risk Management")
+
+// CALCULATIONS
+ema20 = ta.ema(close, ema20_len)
+ema50 = ta.ema(close, ema50_len)
+ema200 = ta.ema(close, ema200_len)
+
+rsi = ta.rsi(close, rsi_len)
+[macd_line, signal_line, macd_hist] = ta.macd(close, 12, 26, 9)
+
+[bb_upper, bb_basis, bb_lower] = ta.bb(close, bb_len, bb_mult)
+atr = ta.atr(atr_len)
+
+avg_vol = ta.sma(volume, 20)
+vol_surge = volume > avg_vol * vol_mult
+
+// FILTERS
+universe_ok = close >= minPrice and close <= maxPrice and volume >= minVolume
+trend_up = ema20 > ema50 and ema50 > ema200 and close > ema20
+momentum_ok = rsi >= rsi_low and rsi <= rsi_high and macd_line > signal_line
+volatility_ok = close > bb_basis
+
+// STRATEGY
+base_long = universe_ok and trend_up and momentum_ok and volatility_ok and vol_surge
+breakout_long = universe_ok and breakout and vol_surge and rsi > 50 and rsi < 80
+momentum_long = universe_ok and close > ema20 and close > ema50 and close > ema200 and rsi > 60
+
+// ENTRY/EXIT
+if long_condition and strategy.position_size == 0
+    strategy.entry("LONG", strategy.long, qty=qty)
+
+if strategy.position_size > 0
+    strategy.exit("EXIT", "LONG", stop=sl_price, limit=tp_price)
+    if close < ema20
+        strategy.close("LONG", comment="EMA Exit")
+      </pre>
+    </div>
+  </section>
+
+  <!-- Momentum Scanner -->
+  <section class="scanner">
+    <div class="scanner-head">
+      <h2>Top 5 Swing Candidates (MMM v6)</h2>
+      <p>Price ₹50–₹10,000 | Vol > 500K | EMA Uptrend | RSI 40–80 | Vol Surge >1.5x | MACD Bullish</p>
+    </div>
+    <div class="scanner-body">
+      <div class="stocks-grid" id="scannerList"></div>
+    </div>
+  </section>
+
+  <!-- Search / Analyzer -->
+  <section class="search">
+    <h2>Analyze Any Stock (Demo DB + API-ready)</h2>
+    <div class="sbox">
+      <input id="q" class="sin" placeholder="Search by name or symbol (e.g., MANINFRA, Reliance, TCS, HDFCBANK)"/>
+      <button class="sbtn" onclick="runSearch()">Analyze</button>
+      <div id="sugg" class="sugg"></div>
+    </div>
+    <div style="margin-top:8px; font-size:13px; opacity:.9;">Demo includes select stocks. Hook APIs to cover all listed companies.</div>
+  </section>
+
+  <!-- Loading -->
+  <div class="loading" id="loading">
+    <div class="spin"></div>
+    <h3 style="margin-top:12px;">Applying MMM v6 filters...</h3>
+  </div>
+
+  <!-- Report -->
+  <div class="report" id="report"></div>
+
+<script>
+  // Demo database. Extend/replace via API for full coverage (NSE/BSE/Screener).
+  const DB = {
+    'man infraconstruction': { name:'Man Infraconstruction Ltd', symbol:'MANINFRA', sector:'Construction & Engineering',
+      price:166, marketCap:6396, pe:22.7, roe:17.5, roce:23.5, debt_equity:0.02, dividend_yield:0.54, revenue_cagr:33,
+      volume:892000, avgVolume:580000, ema20:158, ema50:145, ema200:132, rsi:67.2, macdBullish:true, bbPosition:'upper',
+      recommendation:'BUY', target_price:200
+    },
+    'reliance': { name:'Reliance Industries Ltd', symbol:'RELIANCE', sector:'Oil & Gas',
+      price:1368, marketCap:1850971, pe:24.7, roe:8.51, roce:9.43, debt_equity:0.37, dividend_yield:0.4, revenue_cagr:10.1,
+      volume:2850000, avgVolume:1900000, ema20:1342, ema50:1298, ema200:1245, rsi:58.4, macdBullish:true, bbPosition:'upper',
+      recommendation:'HOLD', target_price:1450
+    },
+    'tcs': { name:'Tata Consultancy Services Ltd', symbol:'TCS', sector:'Information Technology',
+      price:3684, marketCap:1342000, pe:29.2, roe:44.1, roce:42.5, debt_equity:0.02, dividend_yield:3.2, revenue_cagr:8.9,
+      volume:1250000, avgVolume:800000, ema20:3620, ema50:3580, ema200:3450, rsi:62.1, macdBullish:true, bbPosition:'upper',
+      recommendation:'BUY', target_price:4000
+    },
+    'hdfc bank': { name:'HDFC Bank Ltd', symbol:'HDFCBANK', sector:'Banking',
+      price:1973, marketCap:1248000, pe:19.8, roe:16.2, roce:18.5, debt_equity:6.8, dividend_yield:1.0, revenue_cagr:15.6,
+      volume:3200000, avgVolume:2100000, ema20:1945, ema50:1920, ema200:1850, rsi:55.8, macdBullish:true, bbPosition:'middle',
+      recommendation:'BUY', target_price:2100
+    },
+    'asian paints': { name:'Asian Paints Ltd', symbol:'ASIANPAINT', sector:'Paints',
+      price:2945, marketCap:282000, pe:58.4, roe:28.5, roce:32.8, debt_equity:0.01, dividend_yield:0.8, revenue_cagr:8.2,
+      volume:680000, avgVolume:580000, ema20:2920, ema50:2850, ema200:2750, rsi:59.8, macdBullish:true, bbPosition:'middle',
+      recommendation:'HOLD', target_price:3100
+    },
+    'bajaj finance': { name:'Bajaj Finance Ltd', symbol:'BAJFINANCE', sector:'Financial Services',
+      price:6895, marketCap:426000, pe:28.5, roe:22.8, roce:12.5, debt_equity:7.2, dividend_yield:0.8, revenue_cagr:24.5,
+      volume:850000, avgVolume:720000, ema20:6780, ema50:6450, ema200:6100, rsi:67.4, macdBullish:true, bbPosition:'upper',
+      recommendation:'BUY', target_price:7500
+    },
+    'larsen toubro': { name:'Larsen & Toubro Ltd', symbol:'LT', sector:'Construction',
+      price:3595, marketCap:495000, pe:29.8, roe:14.2, roce:16.8, debt_equity:0.58, dividend_yield:1.4, revenue_cagr:12.5,
+      volume:950000, avgVolume:800000, ema20:3540, ema50:3450, ema200:3280, rsi:62.4, macdBullish:true, bbPosition:'upper',
+      recommendation:'BUY', target_price:3800
+    },
+    'adani enterprises': { name:'Adani Enterprises Ltd', symbol:'ADANIENT', sector:'Trading',
+      price:2845, marketCap:327000, pe:78.5, roe:8.2, roce:6.8, debt_equity:2.8, dividend_yield:0.2, revenue_cagr:35.8,
+      volume:2100000, avgVolume:1800000, ema20:2780, ema50:2650, ema200:2450, rsi:65.4, macdBullish:true, bbPosition:'upper',
+      recommendation:'HOLD', target_price:3000
+    },
+    'shilchar technologies': { name:'Shilchar Technologies Ltd', symbol:'SHILCHAR', sector:'Technology',
+      price:5170.6, marketCap:5915, pe:68.5, roe:28.4, roce:35.8, debt_equity:0.01, dividend_yield:0.8, revenue_cagr:45.2,
+      volume:125000, avgVolume:75000, ema20:4980, ema50:4650, ema200:4200, rsi:71.3, macdBullish:true, bbPosition:'upper',
+      recommendation:'BUY', target_price:5800
+    },
+    'websol energy': { name:'Websol Energy System Ltd', symbol:'WEBSOL', sector:'Renewable Energy',
+      price:1316.7, marketCap:5716, pe:42.8, roe:22.1, roce:28.5, debt_equity:0.08, dividend_yield:1.2, revenue_cagr:38.5,
+      volume:245000, avgVolume:145000, ema20:1240, ema50:1150, ema200:980, rsi:59.1, macdBullish:true, bbPosition:'middle',
+      recommendation:'BUY', target_price:1450
+    },
+    'tips music': { name:'Tips Music Ltd', symbol:'TIPS', sector:'Entertainment',
+      price:587.95, marketCap:7515, pe:35.8, roe:18.9, roce:22.5, debt_equity:0.05, dividend_yield:2.1, revenue_cagr:28.4,
+      volume:180000, avgVolume:95000, ema20:565, ema50:520, ema200:485, rsi:64.8, macdBullish:true, bbPosition:'upper',
+      recommendation:'BUY', target_price:650
+    }
+  };
+
+  // Universal search list (names and symbols)
+  const SEARCH_LIST = Object.values(DB).flatMap(s => [s.name, s.symbol]);
+
+  // MMM v6 Equivalent Logic in JS
+  function mmmEvaluate(s) {
+    if (!s) return null;
+    const universe_ok = s.price >= 50 && s.price <= 10000 && s.volume >= 500000;
+    const trend_up = s.ema20 > s.ema50 && s.ema50 > s.ema200 && s.price > s.ema20;
+    const momentum_ok = s.rsi >= 40 && s.rsi <= 80 && !!s.macdBullish;
+    const vol_surge = s.volume > (s.avgVolume * 1.5);
+    const volatility_ok = s.bbPosition === 'upper' || s.bbPosition === 'middle';
+    const base_long = universe_ok && trend_up && momentum_ok && volatility_ok && vol_surge;
+    const breakout_long = universe_ok && vol_surge && s.rsi > 50 && s.rsi < 80;
+    const momentum_long = universe_ok && trend_up && s.rsi > 60;
+    const final_signal = base_long || breakout_long || momentum_long;
+    const strength = base_long ? 'STRONG' : (final_signal ? 'MODERATE' : 'WEAK');
+    return { universe_ok, trend_up, momentum_ok, vol_surge, volatility_ok, base_long, breakout_long, momentum_long, final_signal, strength };
+  }
+
+  function formatPct(num) { return (num > 0 ? '+' : '') + num.toFixed(2) + '%'; }
+
+  // Live time and random tick simulation (demo)
+  function updateLive() {
+    document.getElementById('liveTime').textContent = new Intl.DateTimeFormat('en-IN', {
+      timeZone:'Asia/Kolkata', hour:'2-digit', minute:'2-digit', second:'2-digit', day:'2-digit', month:'2-digit', year:'numeric'
+    }).format(new Date());
+  }
+  function tick(id, chgId, min=0.3, max=1.2) {
+    const vEl = document.getElementById(id); const cEl = document.getElementById(chgId);
+    if (!vEl || !cEl) return;
+    let v = parseFloat(vEl.textContent.replace(/,/g,'')) || 0;
+    const delta = v * ((Math.random() - .5) * (max/100));
+    v = Math.max(0, v + delta);
+    vEl.textContent = v.toLocaleString('en-IN', { maximumFractionDigits:2 });
+    const pct = (Math.random() * 2 - 1) * 1.2;
+    cEl.textContent = formatPct(pct);
+    cEl.className = 'idx-chg ' + (pct >= 0 ? 'pos' : 'neg');
+  }
+  function randomTicks() {
+    tick('nifty50','nifty50Chg'); tick('sensex','sensexChg'); tick('midcap150','midcap150Chg');
+    tick('smallcap250','smallcap250Chg'); tick('vix','vixChg'); tick('usdinr','usdinrChg',0.05,0.3);
+  }
+
+  // Populate Momentum Scanner
+  function buildScanner() {
+    const list = Object.values(DB).map(s => ({ s, eval:mmmEvaluate(s) }))
+      .filter(x => x.eval && x.eval.final_signal)
+      .sort((a,b) => {
+        // rank: strength, RSI nearer to 65, volume surge ratio higher
+        const rankA = (a.eval.base_long?2:1) + (a.s.volume/a.s.avgVolume);
+        const rankB = (b.eval.base_long?2:1) + (b.s.volume/b.s.avgVolume);
+        return rankB - rankA;
+      })
+      .slice(0,5);
+    const el = document.getElementById('scannerList');
+    el.innerHTML = list.map(({s, eval:ev}) => {
+      const volRatio = (s.volume/s.avgVolume).toFixed(1);
+      const rsiClass = s.rsi>70?'bear':(s.rsi>50?'bull':'neu');
+      const cardCls = ev.strength==='STRONG' ? 's-card strong' : 's-card buy';
+      const badgeCls = ev.strength==='STRONG' ? 'badge b-strong' : 'badge b-buy';
+      const badgeTxt = ev.strength==='STRONG' ? 'STRONG BUY' : 'BUY';
+      return `
+        <div class="${cardCls}" onclick="selectSuggestion('${s.symbol}')">
+          <div class="${badgeCls}">${badgeTxt}</div>
+          <div class="sym">${s.symbol}</div>
+          <div class="nm">${s.name}</div>
+          <div class="metrics">
+            <div class="met"><div class="l">Price</div><div class="v">₹${s.price.toLocaleString()}</div></div>
+            <div class="met"><div class="l">RSI</div><div class="v ${rsiClass}">${s.rsi}</div></div>
+            <div class="met"><div class="l">Vol Surge</div><div class="v ${volRatio>1.5?'bull':'neu'}">${volRatio}x</div></div>
+            <div class="met"><div class="l">Trend</div><div class="v ${ev.trend_up?'bull':'bear'}">${ev.trend_up?'UP':'DOWN'}</div></div>
+          </div>
+          <div class="conds">
+            <h4>Conditions</h4>
+            <div class="chips">
+              <span class="chip ${ev.universe_ok?'ok':''}">Universe</span>
+              <span class="chip ${ev.trend_up?'ok':''}">EMA</span>
+              <span class="chip ${ev.momentum_ok?'ok':''}">RSI/MACD</span>
+              <span class="chip ${ev.vol_surge?'ok':''}">Volume</span>
+              <span class="chip ${ev.volatility_ok?'ok':''}">Bollinger</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('') || `<div style="text-align:center;color:#666;">No stocks meet MMM v6 right now (demo set). Add more data or integrate API.</div>`;
+  }
+
+  // Suggestions
+  const qEl = document.getElementById('q');
+  const suggEl = document.getElementById('sugg');
+  qEl.addEventListener('input', () => {
+    const q = qEl.value.trim().toLowerCase();
+    if (q.length < 2) { suggEl.style.display='none'; return; }
+    const matches = SEARCH_LIST.filter(x => x.toLowerCase().includes(q)).slice(0,10);
+    if (!matches.length) { suggEl.style.display='none'; return; }
+    suggEl.innerHTML = matches.map(m => {
+      const sym = getSymbol(m);
+      return `<div class="sug" onclick="selectSuggestion('${m}')"><span>${m}</span><span class="sug-sym">${sym}</span></div>`;
+    }).join('');
+    suggEl.style.display='block';
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.sbox')) suggEl.style.display='none';
+  });
+
+  function getSymbol(nameOrSymbol) {
+    const q = nameOrSymbol.toLowerCase();
+    for (const k in DB) {
+      const s = DB[k];
+      if (s.symbol.toLowerCase()===q || s.name.toLowerCase()===q || k===q) return s.symbol;
+      if (s.name.toLowerCase().includes(q) || s.symbol.toLowerCase().includes(q)) return s.symbol;
+    }
+    return nameOrSymbol.toUpperCase().substring(0,8);
+  }
+  function selectSuggestion(txt) {
+    qEl.value = txt;
+    suggEl.style.display='none';
+    runSearch();
+  }
+
+  function runSearch() {
+    const key = qEl.value.trim().toLowerCase();
+    if (!key) { alert('Please enter a stock'); return; }
+    document.getElementById('loading').style.display='block';
+    document.getElementById('report').style.display='none';
+    setTimeout(() => {
+      const data = findStock(key);
+      if (!data) {
+        showNotFound(key);
+      } else {
+        renderReport(data);
+      }
+      document.getElementById('loading').style.display='none';
+    }, 900);
+  }
+
+  function findStock(q) {
+    // exact key
+    if (DB[q]) return DB[q];
+    // symbol exact
+    for (const k in DB) if (DB[k].symbol.toLowerCase()===q) return DB[k];
+    // name includes
+    for (const k in DB) if (DB[k].name.toLowerCase().includes(q)) return DB[k];
+    // symbol includes
+    for (const k in DB) if (DB[k].symbol.toLowerCase().includes(q)) return DB[k];
+    // partial tokens
+    const parts = q.split(/\s+/);
+    for (const k in DB) {
+      const s = DB[k];
+      const w = s.name.toLowerCase().split(/\s+/);
+      if (parts.some(p => w.some(t => t.includes(p) || p.includes(t)))) return s;
+    }
+    return null;
+  }
+
+  function renderReport(s) {
+    const ev = mmmEvaluate(s);
+    const upside = s.target_price ? Math.round(((s.target_price - s.price)/s.price)*100) : 0;
+    const rep = document.getElementById('report');
+    rep.innerHTML = `
+      <div class="rep-head">
+        <div class="logo">${s.symbol.substring(0,3)}</div>
+        <h2>${s.name}</h2>
+        <div style="opacity:.9;margin-top:6px;">Sector: ${s.sector} | Symbol: ${s.symbol}</div>
+      </div>
+
+      <div class="rep-sec">
+        <h3>Executive Summary</h3>
+        <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;">
+          <div>
+            <table>
+              <tbody>
+                <tr><td><b>Current Price</b></td><td>₹${s.price.toLocaleString()}</td></tr>
+                <tr><td><b>Market Cap</b></td><td>₹${(s.marketCap||0).toLocaleString()} Cr</td></tr>
+                <tr><td><b>P/E</b></td><td>${s.pe ?? '—'}</td></tr>
+                <tr><td><b>ROE</b></td><td>${s.roe ?? '—'}%</td></tr>
+                <tr><td><b>ROCE</b></td><td>${s.roce ?? '—'}%</td></tr>
+                <tr><td><b>Dividend Yield</b></td><td>${s.dividend_yield ?? '—'}%</td></tr>
+                <tr><td><b>Debt/Equity</b></td><td>${s.debt_equity ?? '—'}</td></tr>
+                <tr><td><b>Revenue CAGR (5Y)</b></td><td>${s.revenue_cagr ?? '—'}%</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="reco ${String(s.recommendation||'BUY').toLowerCase()}">
+            <div style="font-size:14px;margin-bottom:6px;">Investment Recommendation</div>
+            <div style="font-size:30px;font-weight:800;">${s.recommendation||'BUY'}</div>
+            <div style="margin-top:8px;">Target: ₹${(s.target_price||s.price).toLocaleString()}</div>
+            <div style="margin-top:4px;">Expected: ${upside>=0?'+':''}${upside}%</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rep-sec">
+        <h3>MMM v6 Strategy Evaluation</h3>
+        ${ev ? `
+        <table>
+          <thead><tr><th>Filter</th><th>Status</th><th>Current</th><th>Requirement</th></tr></thead>
+          <tbody>
+            <tr><td>Universe</td><td>${ev.universe_ok?'✅ PASS':'❌ FAIL'}</td><td>₹${s.price} | Vol ${(s.volume/1000).toFixed(0)}K</td><td>₹50–10000 | >500K</td></tr>
+            <tr><td>EMA Trend</td><td>${ev.trend_up?'✅ UPTREND':'❌ DOWNTREND'}</td><td>20:${s.ema20} | 50:${s.ema50} | 200:${s.ema200}</td><td>20>50>200 & Close>20</td></tr>
+            <tr><td>Momentum</td><td>${ev.momentum_ok?'✅ IN RANGE':'❌ OUT OF RANGE'}</td><td>RSI ${s.rsi} | MACD ${s.macdBullish?'Bullish':'Bearish'}</td><td>RSI 40–80, MACD Bullish</td></tr>
+            <tr><td>Volume</td><td>${ev.vol_surge?'✅ SURGE':'❌ NORMAL'}</td><td>${(s.volume/s.avgVolume).toFixed(1)}x</td><td>> 1.5x Avg</td></tr>
+            <tr><td>Bollinger</td><td>${ev.volatility_ok?'✅ OK':'❌ WEAK'}</td><td>${s.bbPosition?.toUpperCase()||'—'}</td><td>Above middle</td></tr>
+            <tr><td>Final Signal</td><td colspan="3"><b>${ev.final_signal ? (ev.base_long ? 'STRONG BUY' : 'BUY') : 'WAIT'}</b> | Strength: ${ev.strength}</td></tr>
+          </tbody>
+        </table>
+        ` : '<div style="color:#666;">No strategy evaluation available.</div>'}
+      </div>
+
+      <div class="rep-sec">
+        <h3>Position Sizing (Demo)</h3>
+        <table>
+          <tbody>
+            <tr><td><b>Entry</b></td><td>₹${s.price.toLocaleString()}</td></tr>
+            <tr><td><b>Stop (2%)</b></td><td>₹${(s.price*0.98).toFixed(2)}</td></tr>
+            <tr><td><b>Target (6%)</b></td><td>₹${(s.price*1.06).toFixed(2)}</td></tr>
+            <tr><td><b>Risk/Reward</b></td><td>1:3</td></tr>
+            <tr><td><b>Qty for ₹1L (3% risk)</b></td><td>${Math.floor(3000/(s.price*0.02))} shares</td></tr>
+          </tbody>
+        </table>
+      </div>
+    `;
+    rep.style.display='block';
+  }
+
+  function showNotFound(q) {
+    const rep = document.getElementById('report');
+    const avail = Object.values(DB).slice(0,10);
+    rep.innerHTML = `
+      <div class="notfound">
+        <h3 style="color:#c82333;">Stock Not Found in Demo Database</h3>
+        <p style="margin:8px 0;">You searched for: <b>"${q}"</b></p>
+        <div style="margin:14px 0; color:#555;">This app is API-ready to cover ALL listed stocks. Connect NSE/BSE/Screener feeds to analyze any symbol.</div>
+        <div style="margin-top:12px;">Try one of these:</div>
+        <div class="chips2">
+          ${avail.map(s => `<span class="chip2" onclick="selectSuggestion('${s.symbol}')">${s.symbol}</span>`).join('')}
+        </div>
+      </div>
+    `;
+    rep.style.display='block';
+  }
+
+  // Init
+  function init() {
+    updateLive();
+    buildScanner();
+    setInterval(updateLive, 1000);
+    setInterval(randomTicks, 15000);
+    qEl.addEventListener('keypress', e => { if (e.key==='Enter') runSearch(); });
+  }
+  init();
+</script>
+</body>
+</html>
